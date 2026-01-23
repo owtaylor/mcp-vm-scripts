@@ -162,7 +162,7 @@ fi
 info "Setting up VM: $VM_NAME with RHEL $VERSION"
 
 # Check for required tools
-for tool in virsh virt-install virt-customize; do
+for tool in virsh virt-install; do
     if ! command -v $tool &> /dev/null; then
         error "$tool is required but not installed"
     fi
@@ -220,62 +220,48 @@ fi
 
 SSH_KEY_CONTENT=$(cat "$SSH_PUBKEY")
 
-info "Customizing VM image..."
+info "Creating cloud-init configuration..."
 
-# Create a temporary script for registration and user setup
-CUSTOMIZE_SCRIPT=$(cat <<'EOFSCRIPT'
-#!/bin/bash
-set -e
+# Create cloud-init user-data file
+CLOUD_INIT_USERDATA=$(cat <<'EOFUSERDATA'
+#cloud-config
+hostname: __HOSTNAME__
+fqdn: __HOSTNAME__.local
 
-# Set hostname (can't use hostnamectl in virt-customize since systemd isn't running)
-echo "__HOSTNAME__" > /etc/hostname
+rh_subscription:
+  activation-key: __ACTIVATION_KEY__
+  org: "__ORG_ID__"
 
-# Register the system
-subscription-manager register --org=__ORG_ID__ --activationkey=__ACTIVATION_KEY__
+users:
+  - name: __USERNAME__
+    groups: wheel
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - __SSH_KEY__
 
-# Wait for registration to complete
-subscription-manager status
+packages:
+  - avahi
 
-# Create user
-useradd -m -G wheel -s /bin/bash __USERNAME__
-
-# Install and enable avahi
-dnf install -y avahi
-systemctl enable avahi-daemon
-
-# Setup SSH
-mkdir -p /home/__USERNAME__/.ssh
-chmod 700 /home/__USERNAME__/.ssh
-echo "__SSH_KEY__" > /home/__USERNAME__/.ssh/authorized_keys
-chmod 600 /home/__USERNAME__/.ssh/authorized_keys
-chown -R __USERNAME__:__USERNAME__ /home/__USERNAME__/.ssh
-
-# Setup passwordless sudo
-echo "__USERNAME__ ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/__USERNAME__
-chmod 0440 /etc/sudoers.d/__USERNAME__
-
-echo "password1" | passwd --stdin __USERNAME__
-EOFSCRIPT
+runcmd:
+  # Enable and start avahi for mDNS
+  - systemctl enable avahi-daemon
+  - systemctl start avahi-daemon
+  # Trigger SELinux relabel on next boot
+  - touch /.autorelabel
+EOFUSERDATA
 )
 
 # Replace placeholders
-CUSTOMIZE_SCRIPT="${CUSTOMIZE_SCRIPT//__HOSTNAME__/$VM_NAME}"
-CUSTOMIZE_SCRIPT="${CUSTOMIZE_SCRIPT//__ORG_ID__/$REDHAT_ORG_ID}"
-CUSTOMIZE_SCRIPT="${CUSTOMIZE_SCRIPT//__ACTIVATION_KEY__/$REDHAT_ACTIVATION_KEY}"
-CUSTOMIZE_SCRIPT="${CUSTOMIZE_SCRIPT//__USERNAME__/$CURRENT_USER}"
-CUSTOMIZE_SCRIPT="${CUSTOMIZE_SCRIPT//__SSH_KEY__/$SSH_KEY_CONTENT}"
+CLOUD_INIT_USERDATA="${CLOUD_INIT_USERDATA//__HOSTNAME__/$VM_NAME}"
+CLOUD_INIT_USERDATA="${CLOUD_INIT_USERDATA//__ORG_ID__/$REDHAT_ORG_ID}"
+CLOUD_INIT_USERDATA="${CLOUD_INIT_USERDATA//__ACTIVATION_KEY__/$REDHAT_ACTIVATION_KEY}"
+CLOUD_INIT_USERDATA="${CLOUD_INIT_USERDATA//__USERNAME__/$CURRENT_USER}"
+CLOUD_INIT_USERDATA="${CLOUD_INIT_USERDATA//__SSH_KEY__/$SSH_KEY_CONTENT}"
 
-# Create temporary script file
-TEMP_SCRIPT=$(mktemp)
-echo "$CUSTOMIZE_SCRIPT" > "$TEMP_SCRIPT"
-chmod +x "$TEMP_SCRIPT"
-
-# Run virt-customize
-virt-customize -a "$VM_DISK" \
-    --run "$TEMP_SCRIPT" \
-    --selinux-relabel
-
-rm "$TEMP_SCRIPT"
+# Create temporary cloud-init user-data file
+CLOUD_INIT_FILE=$(mktemp --suffix=.yaml)
+echo "$CLOUD_INIT_USERDATA" > "$CLOUD_INIT_FILE"
 
 # Determine OS variant for virt-install
 # Try rhel<major>.<minor> first, then rhel<major>-unknown, then rhel-unknown
@@ -315,12 +301,16 @@ virt-install \
     --disk path="$VM_DISK",format=qcow2 \
     --network network=default \
     --os-variant "$OS_VARIANT" \
+    --cloud-init user-data="$CLOUD_INIT_FILE" \
     --import \
     --noautoconsole
 
 info "VM created successfully!"
 info "Starting VM..."
 virsh -c qemu:///system start "$VM_NAME" 2>/dev/null || true
+
+# Clean up cloud-init temp file
+rm -f "$CLOUD_INIT_FILE"
 
 # Wait for VM to boot and add SSH host keys to known_hosts
 VM_HOSTNAME="$VM_NAME.local"
