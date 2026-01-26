@@ -59,17 +59,22 @@ runcmd:
   - touch /.autorelabel
 EOFUSERDATA
 
+    # Set sed in-place flag based on platform
+    local sed_inplace
+    if [[ "$PLATFORM" == "Darwin" ]]; then
+        sed_inplace=(-i '')  # macOS (BSD sed) requires empty string
+    else
+        sed_inplace=(-i)     # Linux (GNU sed)
+    fi
+
     # Replace placeholders in user-data
-    sed -i "s|__HOSTNAME__|$vm_name|g" "$temp_dir/user-data"
-    sed -i "s|__ORG_ID__|$org_id|g" "$temp_dir/user-data"
-    sed -i "s|__ACTIVATION_KEY__|$activation_key|g" "$temp_dir/user-data"
-    sed -i "s|__USERNAME__|$username|g" "$temp_dir/user-data"
-    sed -i "s|__SSH_KEY__|$ssh_key|g" "$temp_dir/user-data"
+    sed "${sed_inplace[@]}" "s|__HOSTNAME__|$vm_name|g" "$temp_dir/user-data"
+    sed "${sed_inplace[@]}" "s|__ORG_ID__|$org_id|g" "$temp_dir/user-data"
+    sed "${sed_inplace[@]}" "s|__ACTIVATION_KEY__|$activation_key|g" "$temp_dir/user-data"
+    sed "${sed_inplace[@]}" "s|__USERNAME__|$username|g" "$temp_dir/user-data"
+    sed "${sed_inplace[@]}" "s|__SSH_KEY__|$ssh_key|g" "$temp_dir/user-data"
 
-    # Detect platform and create ISO accordingly
-    local platform="$(uname -s)"
-
-    case "$platform" in
+    case "$PLATFORM" in
         Linux)
             # Use xorriso on Linux
             if ! command -v xorriso &> /dev/null; then
@@ -85,7 +90,7 @@ EOFUSERDATA
             ;;
         *)
             rm -rf "$temp_dir"
-            error "Unsupported platform for ISO creation: $platform"
+            error "Unsupported platform for ISO creation: $PLATFORM"
             ;;
     esac
 

@@ -159,9 +159,8 @@ get_ssh_key() {
 #   Prints cloud-init ISO path to stdout
 get_cloudinit_iso_path() {
     local vm_name="$1"
-    local platform="$(uname -s)"
 
-    case "$platform" in
+    case "$PLATFORM" in
         Linux)
             echo "$HOME/.local/share/libvirt/images/$vm_name-cloudinit.iso"
             ;;
@@ -169,7 +168,7 @@ get_cloudinit_iso_path() {
             echo "$HOME/.local/share/rhelmcp/disks/$vm_name-cloudinit.iso"
             ;;
         *)
-            error "Unsupported platform: $platform"
+            error "Unsupported platform: $PLATFORM"
             ;;
     esac
 }
