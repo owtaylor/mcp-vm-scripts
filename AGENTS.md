@@ -167,6 +167,21 @@ virsh -c qemu:///system dominfo <name>
 
 All use colored output (red/yellow/green) for visibility.
 
+## Commit Message Guidelines
+
+When creating commits, follow these conventions:
+
+**Commit message structure:**
+- **Subject line**: Brief summary of the change (imperative mood, e.g., "Fix cloud-init ISO cleanup issue")
+- **Body**: The body of a commit message should consist of a short description of what was wrong or needed improvement (1 sentence for a small change - a short paragraph of two-three sentences for a major change) followed by a high-level description of what was changed. Commit messages should not contain information about wrong paths or bugs that were introduced and fixed within the same session before committing.
+- The body should be line-wrapped at a width of about 72 characters.
+
+**Best practices:**
+- Focus on the "why" and "what" of the final solution
+- Omit implementation details that were tried and abandoned during development
+- Don't mention bugs or errors that were fixed before the commit
+- Keep the tone professional and focused on the outcome
+
 ## Testing Considerations
 
 ### Prerequisites for Testing
