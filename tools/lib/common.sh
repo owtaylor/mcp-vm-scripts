@@ -136,12 +136,17 @@ load_config() {
 }
 
 # Get current user's SSH public key path and content
+# Prefers id_ed25519.pub, falls back to id_rsa.pub
 # Sets SSH_PUBKEY and SSH_KEY_CONTENT variables
 get_ssh_key() {
-    SSH_PUBKEY="$HOME/.ssh/id_rsa.pub"
-
-    if [[ ! -f "$SSH_PUBKEY" ]]; then
-        error "SSH public key not found at $SSH_PUBKEY"
+    # Check for Ed25519 key first (modern, preferred)
+    if [[ -f "$HOME/.ssh/id_ed25519.pub" ]]; then
+        SSH_PUBKEY="$HOME/.ssh/id_ed25519.pub"
+    # Fall back to RSA key
+    elif [[ -f "$HOME/.ssh/id_rsa.pub" ]]; then
+        SSH_PUBKEY="$HOME/.ssh/id_rsa.pub"
+    else
+        error "No SSH public key found. Expected ~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub"
     fi
 
     SSH_KEY_CONTENT=$(cat "$SSH_PUBKEY")

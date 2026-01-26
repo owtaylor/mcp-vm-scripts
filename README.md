@@ -29,7 +29,7 @@ Cross-platform scripts for automated RHEL virtual machine creation and configura
 - RHEL ARM64 image downloaded to `~/.local/share/rhelmcp/rhel-X.Y-aarch64.qcow2`
 
 ### Both Platforms
-- SSH key at `~/.ssh/id_rsa.pub`
+- SSH key at `~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub` (ed25519 preferred)
 - Configuration file at `~/.config/rhelmcp/config.env` (see Configuration section)
 
 ## Configuration

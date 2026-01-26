@@ -69,7 +69,7 @@ Base images must match the platform architecture.
 
 ### User Configuration
 - **Config**: `~/.config/rhelmcp/config.env` (Red Hat subscription credentials)
-- **SSH Key**: `~/.ssh/id_rsa.pub` (required, no alternatives supported currently)
+- **SSH Key**: `~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub` (ed25519 preferred, rsa fallback)
 
 ### VM Storage
 - **Base Images**: `~/.local/share/rhelmcp/rhel-X.Y-{x86_64-kvm,aarch64}.qcow2`
@@ -218,18 +218,16 @@ If working with older commits, be aware of this architectural change.
 
 ## Known Limitations
 
-1. **SSH Key**: Only supports `~/.ssh/id_rsa.pub` (no alternative key paths)
-2. **IP Detection (macOS)**: UTM's AppleScript API doesn't always provide IP immediately
-3. **VM Name Restrictions**: Cannot contain periods (conflicts with hostname format)
-4. **Network Mode**: Fixed to shared/NAT (no bridged mode support currently)
-5. **Resource Configuration**: Hardcoded (4GB RAM, 2 vCPUs on Linux)
+1. **IP Detection (macOS)**: UTM's AppleScript API doesn't always provide IP immediately
+2. **VM Name Restrictions**: Cannot contain periods (conflicts with hostname format)
+3. **Network Mode**: Fixed to shared/NAT (no bridged mode support currently)
+4. **Resource Configuration**: Hardcoded (4GB RAM, 2 vCPUs on Linux)
 
 ## Future Enhancement Ideas
 
 Based on README notes and code structure:
 - Auto-create config.env with interactive prompts if missing
 - Auto-create `~/.local/share/rhelmcp/` directory
-- Support alternative SSH key paths
 - Make VM resources configurable via flags
 - Add VM snapshot/backup functionality
 - Support other Linux distros (currently RHEL-specific)
