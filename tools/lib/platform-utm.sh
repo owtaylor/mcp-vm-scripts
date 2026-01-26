@@ -36,7 +36,7 @@ platform_check_prerequisites() {
 platform_validate_base_image() {
     local version="$1"
     local image_dir="$HOME/.local/share/rhelmcp"
-    BASE_IMAGE="$image_dir/rhel-$version-aarch64.qcow2"
+    BASE_IMAGE="$image_dir/rhel-$version-aarch64-kvm.qcow2"
 
     if [[ ! -f "$BASE_IMAGE" ]]; then
         error "Base image not found at $BASE_IMAGE\n  Please download the RHEL $version ARM64 image from:\n  https://access.redhat.com/downloads/content/rhel\n  and place it at $BASE_IMAGE"
