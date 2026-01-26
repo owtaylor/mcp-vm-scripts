@@ -93,9 +93,8 @@ platform_create_vm() {
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
     info "Creating VM in UTM..."
-    local result=$(osascript "$script_dir/run-vm-utm.scpt" "$vm_name" "$vm_disk" "$cloudinit_iso" 2>&1)
-
-    if [[ "$result" == Error:* ]]; then
+    local result
+    if ! result=$(osascript "$script_dir/run-vm-utm.scpt" "$vm_name" "$vm_disk" "$cloudinit_iso" 2>&1); then
         error "Failed to create VM: $result"
     fi
 
