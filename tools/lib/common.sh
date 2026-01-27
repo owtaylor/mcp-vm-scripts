@@ -103,6 +103,62 @@ wait_for_ssh_and_add_known_host() {
     fi
 }
 
+# Wait for hostname to become resolvable via mDNS
+# This indicates that cloud-init has completed and Avahi is running
+# Arguments:
+#   $1 - hostname (e.g., myvm.local)
+#   $2 - max retry attempts (default: 60)
+#   $3 - retry interval in seconds (default: 5)
+wait_for_hostname_resolution() {
+    local hostname="$1"
+    local max_retries="${2:-60}"
+    local retry_interval="${3:-5}"
+    local attempt=0
+
+    info "Waiting for $hostname to become resolvable (cloud-init completion)..."
+
+    while [[ $attempt -lt $max_retries ]]; do
+        # Try to resolve the hostname
+        if getent hosts "$hostname" &>/dev/null; then
+            info "Hostname $hostname is now resolvable"
+            return 0
+        fi
+
+        attempt=$((attempt + 1))
+        if [[ $attempt -lt $max_retries ]]; then
+            echo -n "." >&2
+            sleep "$retry_interval"
+        fi
+    done
+    echo "" >&2
+
+    error "Timeout waiting for $hostname to become resolvable"
+}
+
+# Run an Ansible playbook against a host
+# Arguments:
+#   $1 - hostname
+#   $2 - playbook path
+#   $3 - remote user (default: current user)
+run_ansible_playbook() {
+    local hostname="$1"
+    local playbook="$2"
+    local remote_user="${3:-$USER}"
+
+    # Check ansible-playbook is available
+    if ! command -v ansible-playbook &>/dev/null; then
+        error "ansible-playbook is required but not installed"
+    fi
+
+    # Validate playbook exists
+    if [[ ! -f "$playbook" ]]; then
+        error "Playbook not found: $playbook"
+    fi
+
+    info "Running Ansible playbook: $playbook"
+    ansible-playbook -i "$hostname," -u "$remote_user" "$playbook"
+}
+
 # Validate version format (X.Y)
 validate_version_format() {
     local version="$1"

@@ -43,24 +43,27 @@ cmd_setup() {
     # Parse arguments
     VERSION=""
     VM_NAME=""
+    PLAYBOOK=""
 
     while [[ $# -gt 0 ]]; do
         case $1 in
             --help|-h)
                 cat <<EOF
-Usage: mcpvm setup --version=<RHEL-VERSION> [NAME]
+Usage: mcpvm setup --version=<RHEL-VERSION> [--playbook=<PATH>] [NAME]
 
 Create and start a new RHEL VM.
 
 Options:
-  --version=X.Y   RHEL version (e.g., 9.5)
-  [NAME]          Optional VM name (must start with 'mcpvm-'). If not
-                  provided, a random name will be generated
-                  (mcpvm-<adjective>-<utensil>)
+  --version=X.Y       RHEL version (e.g., 9.5)
+  --playbook=<PATH>   Run an Ansible playbook after VM is ready
+  [NAME]              Optional VM name (must start with 'mcpvm-'). If not
+                      provided, a random name will be generated
+                      (mcpvm-<adjective>-<utensil>)
 
 Examples:
-  mcpvm setup --version=9.5                  # Auto-generate name
-  mcpvm setup --version=9.5 mcpvm-my-test    # Use specific name
+  mcpvm setup --version=9.5                           # Auto-generate name
+  mcpvm setup --version=9.5 mcpvm-my-test             # Use specific name
+  mcpvm setup --version=9.5 --playbook=configure.yml  # Run playbook after setup
 EOF
                 exit 0
                 ;;
@@ -70,6 +73,14 @@ EOF
                 ;;
             --version)
                 VERSION="$2"
+                shift 2
+                ;;
+            --playbook=*)
+                PLAYBOOK="${1#*=}"
+                shift
+                ;;
+            --playbook)
+                PLAYBOOK="$2"
                 shift 2
                 ;;
             *)
@@ -136,6 +147,14 @@ EOF
     else
         warn "Could not determine VM IP address"
         warn "You may need to wait for the VM to boot and configure SSH manually"
+    fi
+
+    # Run Ansible playbook if specified
+    if [[ -n "$PLAYBOOK" ]]; then
+        info ""
+        info "Waiting for cloud-init to complete before running playbook..."
+        wait_for_hostname_resolution "$VM_HOSTNAME" 60 5
+        run_ansible_playbook "$VM_HOSTNAME" "$PLAYBOOK" "$USER"
     fi
 
     # Display platform-specific management commands
