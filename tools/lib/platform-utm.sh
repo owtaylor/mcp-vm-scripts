@@ -42,16 +42,25 @@ platform_validate_base_image() {
     info "Base image found: $BASE_IMAGE"
 }
 
-# Check if VM already exists
+# Check if VM exists (returns 0 if exists, 1 if not)
 # Arguments:
 #   $1 - VM name
-platform_check_vm_exists() {
+platform_vm_exists() {
     local vm_name="$1"
 
     # Query UTM via AppleScript to check if VM exists
     local result=$(osascript -e "tell application \"UTM\" to get name of every virtual machine" 2>/dev/null)
 
-    if [[ "$result" == *"$vm_name"* ]]; then
+    [[ "$result" == *"$vm_name"* ]]
+}
+
+# Check if VM already exists and error if so
+# Arguments:
+#   $1 - VM name
+platform_check_vm_exists() {
+    local vm_name="$1"
+
+    if platform_vm_exists "$vm_name"; then
         error "VM '$vm_name' already exists in UTM. Please delete it first from UTM.app"
     fi
 }

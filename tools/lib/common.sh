@@ -111,9 +111,14 @@ validate_version_format() {
     fi
 }
 
-# Validate VM name doesn't contain periods
+# Validate VM name format
+# - Must start with mcpvm- prefix
+# - Cannot contain periods (used as hostname)
 validate_vm_name() {
     local vm_name="$1"
+    if [[ ! "$vm_name" =~ ^mcpvm- ]]; then
+        error "VM name must start with 'mcpvm-' prefix"
+    fi
     if [[ "$vm_name" == *.* ]]; then
         error "VM name cannot contain periods (.) as it is used as a hostname component"
     fi
@@ -150,6 +155,43 @@ get_ssh_key() {
     fi
 
     SSH_KEY_CONTENT=$(cat "$SSH_PUBKEY")
+}
+
+# Word lists for random VM name generation
+ADJECTIVES=(
+    angry bold calm clever curious eager fierce gentle happy hungry
+    jolly lazy lively merry peaceful proud quick quiet silly sleepy
+)
+
+UTENSILS=(
+    fork spoon knife whisk ladle tongs spatula peeler grater sieve
+    colander masher roller cutter scoop skewer mortar funnel strainer
+)
+
+# Generate a unique VM name in format mcpvm-<adjective>-<utensil>
+# Requires platform_vm_exists to be available
+# Returns:
+#   Prints generated name to stdout
+generate_vm_name() {
+    local max_attempts=100
+    local attempt=0
+
+    while [[ $attempt -lt $max_attempts ]]; do
+        # Pick random adjective and utensil
+        local adj_idx=$((RANDOM % ${#ADJECTIVES[@]}))
+        local utensil_idx=$((RANDOM % ${#UTENSILS[@]}))
+        local candidate="mcpvm-${ADJECTIVES[$adj_idx]}-${UTENSILS[$utensil_idx]}"
+
+        # Check if VM exists
+        if ! platform_vm_exists "$candidate"; then
+            echo "$candidate"
+            return 0
+        fi
+
+        attempt=$((attempt + 1))
+    done
+
+    error "Could not generate unique VM name after $max_attempts attempts"
 }
 
 # Get platform-specific cloud-init ISO path

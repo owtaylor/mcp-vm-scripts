@@ -37,13 +37,21 @@ platform_validate_base_image() {
     info "Base image found: $BASE_IMAGE"
 }
 
-# Check if VM already exists
+# Check if VM exists (returns 0 if exists, 1 if not)
+# Arguments:
+#   $1 - VM name
+platform_vm_exists() {
+    local vm_name="$1"
+    virsh -c qemu:///system dominfo "$vm_name" &> /dev/null
+}
+
+# Check if VM already exists and error if so
 # Arguments:
 #   $1 - VM name
 platform_check_vm_exists() {
     local vm_name="$1"
 
-    if virsh -c qemu:///system dominfo "$vm_name" &> /dev/null; then
+    if platform_vm_exists "$vm_name"; then
         error "VM '$vm_name' already exists. Please delete it first with: virsh -c qemu:///system undefine --remove-all-storage $vm_name"
     fi
 }

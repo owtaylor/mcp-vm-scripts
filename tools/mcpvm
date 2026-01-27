@@ -48,16 +48,19 @@ cmd_setup() {
         case $1 in
             --help|-h)
                 cat <<EOF
-Usage: mcpvm setup --version=<RHEL-VERSION> <NAME>
+Usage: mcpvm setup --version=<RHEL-VERSION> [NAME]
 
 Create and start a new RHEL VM.
 
 Options:
   --version=X.Y   RHEL version (e.g., 9.5)
-  <NAME>          VM name (will be prefixed with hostname)
+  [NAME]          Optional VM name (must start with 'mcpvm-'). If not
+                  provided, a random name will be generated
+                  (mcpvm-<adjective>-<utensil>)
 
-Example:
-  mcpvm setup --version=9.5 my-test-vm
+Examples:
+  mcpvm setup --version=9.5                  # Auto-generate name
+  mcpvm setup --version=9.5 mcpvm-my-test    # Use specific name
 EOF
                 exit 0
                 ;;
@@ -80,13 +83,20 @@ EOF
         esac
     done
 
-    if [[ -z "$VERSION" ]] || [[ -z "$VM_NAME" ]]; then
-        error "Usage: mcpvm setup --version=<RHEL-MAJOR>.<RHEL-MINOR> <NAME>"
+    if [[ -z "$VERSION" ]]; then
+        error "Usage: mcpvm setup --version=<RHEL-MAJOR>.<RHEL-MINOR> [NAME]"
     fi
 
-    # Validate inputs
+    # Validate version format
     validate_version_format "$VERSION"
-    validate_vm_name "$VM_NAME"
+
+    # Generate VM name if not provided
+    if [[ -z "$VM_NAME" ]]; then
+        VM_NAME=$(generate_vm_name)
+        info "Generated VM name: $VM_NAME"
+    else
+        validate_vm_name "$VM_NAME"
+    fi
 
     info "Setting up VM: $VM_NAME with RHEL $VERSION on $PLATFORM"
 
