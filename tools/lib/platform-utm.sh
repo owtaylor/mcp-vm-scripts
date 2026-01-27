@@ -77,7 +77,7 @@ platform_create_vm() {
 
     info "Creating VM in UTM..."
     local result
-    if ! result=$(osascript "$script_dir/run-vm-utm.scpt" "$vm_name" "$vm_disk" "$cloudinit_iso" 2>&1); then
+    if ! result=$(osascript "$script_dir/lib/applescript/run-vm-utm.scpt" "$vm_name" "$vm_disk" "$cloudinit_iso" 2>&1); then
         error "Failed to create VM: $result"
     fi
 
@@ -106,7 +106,7 @@ platform_get_vm_ip() {
 
     # Wait for VM to get an IP address
     while [[ $attempt -lt $max_retries ]]; do
-        vm_ip=$(osascript "$script_dir/get-vm-ip-utm.scpt" "$vm_name" 2>/dev/null)
+        vm_ip=$(osascript "$script_dir/lib/applescript/get-vm-ip-utm.scpt" "$vm_name" 2>/dev/null)
 
         # Check if we got an IP and it's not an error message
         if [[ -n "$vm_ip" ]] && [[ "$vm_ip" != Error:* ]] && [[ "$vm_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
