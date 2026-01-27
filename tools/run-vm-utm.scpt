@@ -21,8 +21,8 @@ on run argv
     tell application "UTM"
         try
             -- 2. DEFINE DRIVES
-            set osDrive to {removable:true, source:qcowFile, interface:virtio}
-            set cloudInitDrive to {removable:true, source:isoFile, interface:usb}
+            set osDrive to {removable:false, source:qcowFile, interface:virtio}
+            set cloudInitDrive to {removable:false, source:isoFile, interface:virtio}
 
             -- 3. DEFINE NETWORK
             -- mode: shared -> Corresponds to "Shared Network" (vmnet-shared)

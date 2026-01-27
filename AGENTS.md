@@ -140,6 +140,12 @@ Edit `tools/lib/cloudinit.sh:create_cloudinit_iso()`:
 - `set vmMemory to 4096` - RAM in MB
 - No CPU count setting in current script (uses UTM defaults)
 
+**Note on Disk Management (macOS)**:
+- UTM automatically copies the base image into its VM bundle structure
+- The base image is passed directly to UTM via AppleScript
+- No intermediate backing files are created (unlike Linux which uses qemu-img)
+- VM disks are stored within UTM's VM bundles in ~/Library/Containers/com.utmapp.UTM/
+
 ### Debugging VM Creation Issues
 
 **Linux**:
@@ -222,6 +228,7 @@ If working with older commits, be aware of this architectural change.
 2. **VM Name Restrictions**: Cannot contain periods (conflicts with hostname format)
 3. **Network Mode**: Fixed to shared/NAT (no bridged mode support currently)
 4. **Resource Configuration**: Hardcoded (4GB RAM, 2 vCPUs on Linux)
+5. **Disk Storage (macOS)**: UTM copies base images into VM bundles; no backing file support like libvirt
 
 ## Future Enhancement Ideas
 

@@ -21,11 +21,8 @@ platform_check_prerequisites() {
         error "UTM.app is required but not found at /Applications/UTM.app\n  Please install UTM from: https://mac.getutm.app/"
     fi
 
-    # Check for qemu-img (needed for disk operations)
-    if ! command -v qemu-img &> /dev/null; then
-        warn "qemu-img not found. Will copy base image instead of using backing file."
-        warn "Install qemu with: brew install qemu"
-    fi
+    # Note: qemu-img is NOT required for UTM
+    # UTM handles disk copying internally when creating VMs
 }
 
 # Validate base image exists
@@ -71,23 +68,9 @@ platform_create_vm() {
     local base_image="$3"
     local cloudinit_iso="$4"
 
-    # Create VM disk directory
-    local vm_disk_dir="$HOME/.local/share/rhelmcp/disks"
-    mkdir -p "$vm_disk_dir"
-    local vm_disk="$vm_disk_dir/$vm_name.qcow2"
-
-    # Create VM disk (use backing file if qemu-img available, otherwise copy)
-    if command -v qemu-img &> /dev/null; then
-        info "Creating VM disk with backing file..."
-        qemu-img create -f qcow2 -F qcow2 -b "$base_image" "$vm_disk" 16G
-    else
-        info "Creating VM disk by copying base image..."
-        cp "$base_image" "$vm_disk"
-        # Resize the copied image
-        if command -v qemu-img &> /dev/null; then
-            qemu-img resize "$vm_disk" 16G
-        fi
-    fi
+    # UTM will copy the base image into its VM bundle automatically
+    info "UTM will copy base image into VM bundle..."
+    local vm_disk="$base_image"
 
     # Get script directory to find the AppleScript helper
     local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
