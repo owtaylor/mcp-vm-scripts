@@ -3,7 +3,9 @@
 set -e
 
 # Bootstrap - determine script directory and source libraries
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks to find the actual script location
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/cloudinit.sh"
 
