@@ -56,8 +56,6 @@ runcmd:
   # Disable cloud-init to prevent it from running on subsequent boots
   - systemctl disable cloud-init.service cloud-config.service cloud-final.service cloud-init-local.service
   - touch /etc/cloud/cloud-init.disabled
-  # Trigger SELinux relabel on next boot
-  - touch /.autorelabel
 EOFUSERDATA
 
     # Set sed in-place flag based on platform
