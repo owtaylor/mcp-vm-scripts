@@ -189,26 +189,24 @@ platform_get_vm_ip() {
 
     while [[ $attempt -lt $max_retries ]]; do
         if [[ -r "$lease_file" ]]; then
-            # Parse lease file: key=value blocks; hw_address=1,<mac>; ip_address=x.x.x.x (order varies).
-            # Normalize MACs to 12 hex digits (lease file may use 52:54:0:11:62:fe, state has 52:54:00:11:62:fe).
-            vm_ip=$(awk -v mac_plain="$mac_plain" '
-                function norm_mac(s,  n, a, i, t) {
-                    gsub(/^[^,]*,/, "", s); gsub(/[;\s]+$/, "", s); gsub(/:/, " ", s)
-                    n = split(tolower(s), a, " ")
-                    t = ""
-                    for (i = 1; i <= n; i++) {
-                        while (length(a[i]) < 2) a[i] = "0" a[i]
-                        t = t a[i]
-                    }
-                    return t
-                }
-                /^\{/ { ip = ""; hw = ""; next }
-                /^[[:space:]]*ip_address=/ { sub(/^[^=]*=/, ""); sub(/[;\s]*$/, ""); ip = $0; next }
-                /^[[:space:]]*hw_address=/ { sub(/^[^=]*=/, ""); sub(/[;\s]*$/, ""); hw = $0; next }
-                /^\}/ {
-                    if (ip != "" && hw != "" && norm_mac(hw) == mac_plain) { print ip; exit }
-                }
-            ' "$lease_file")
+            # Lease file is brace-delimited blocks with hw_address=1,<mac>; ip_address=x.x.x.x (order varies).
+            vm_ip=""
+            block=""
+            while IFS= read -r line; do
+                block="$block$line"$'\n'
+                if [[ "$line" =~ ^[[:space:]]*\}$ ]]; then
+                    hw_raw=$(echo "$block" | grep 'hw_address=' | head -1 | cut -d= -f2 | cut -d, -f2 | tr -d '; \t')
+                    if [[ -n "$hw_raw" ]]; then
+                        # Normalize MAC to 12 hex digits (lease may have 52:54:0:11:62:fe).
+                        hw_norm=$(echo "$hw_raw" | tr ':' '\n' | while IFS= read -r o; do [[ -n "$o" ]] && printf '%02x' "0x$o"; done | tr -d '\n')
+                        if [[ "$hw_norm" == "$mac_plain" ]]; then
+                            vm_ip=$(echo "$block" | grep 'ip_address=' | head -1 | cut -d= -f2 | tr -d '; \t')
+                            break
+                        fi
+                    fi
+                    block=""
+                fi
+            done < "$lease_file"
             if [[ -n "$vm_ip" ]] && [[ "$vm_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                 info "VM acquired IP address: $vm_ip"
                 echo "$vm_ip"
