@@ -82,7 +82,8 @@ platform_create_vm() {
 
     if command -v osinfo-query &> /dev/null; then
         # Get list of available OS variants
-        local available_variants=$(osinfo-query os --fields short-id | tail -n +3 | awk '{print $2}')
+        local available_variants
+        available_variants=$(osinfo-query os --fields short-id | tail -n +3 | awk '{print $2}')
 
         # Try exact version match (e.g., rhel9.3)
         if echo "$available_variants" | grep -q "^rhel${version}$"; then
@@ -183,7 +184,8 @@ platform_start_vm() {
         error "VM '$vm_name' does not exist"
     fi
 
-    local state=$(virsh -c qemu:///system domstate "$vm_name" 2>/dev/null)
+    local state
+    state=$(virsh -c qemu:///system domstate "$vm_name" 2>/dev/null)
     if [[ "$state" == "running" ]]; then
         info "VM '$vm_name' is already running"
         return 0
@@ -203,7 +205,8 @@ platform_stop_vm() {
         error "VM '$vm_name' does not exist"
     fi
 
-    local state=$(virsh -c qemu:///system domstate "$vm_name" 2>/dev/null)
+    local state
+    state=$(virsh -c qemu:///system domstate "$vm_name" 2>/dev/null)
     if [[ "$state" == "shut off" ]]; then
         info "VM '$vm_name' is already stopped"
         return 0
@@ -224,7 +227,8 @@ platform_delete_vm() {
     fi
 
     # Stop VM if running
-    local state=$(virsh -c qemu:///system domstate "$vm_name" 2>/dev/null)
+    local state
+    state=$(virsh -c qemu:///system domstate "$vm_name" 2>/dev/null)
     if [[ "$state" == "running" ]]; then
         info "Stopping VM '$vm_name'..."
         virsh -c qemu:///system destroy "$vm_name" 2>/dev/null || true

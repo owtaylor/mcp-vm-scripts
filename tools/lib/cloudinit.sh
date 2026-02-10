@@ -19,7 +19,8 @@ create_cloudinit_iso() {
     local output_iso="$6"
 
     # Create temporary directory for cloud-init files
-    local temp_dir=$(mktemp -d)
+    local temp_dir
+    temp_dir=$(mktemp -d)
 
     # Create meta-data file
     cat > "$temp_dir/meta-data" <<EOF
@@ -75,7 +76,8 @@ EOFUSERDATA
     sed "${sed_inplace[@]}" "s|__SSH_KEY__|$ssh_key|g" "$temp_dir/user-data"
 
     # Ensure output directory exists
-    local output_dir="$(dirname "$output_iso")"
+    local output_dir
+    output_dir="$(dirname "$output_iso")"
     mkdir -p "$output_dir"
 
     # Create ISO based on platform

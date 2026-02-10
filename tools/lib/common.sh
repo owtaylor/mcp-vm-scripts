@@ -24,7 +24,7 @@ warn() {
 # Get the directory where the script is located
 # Returns absolute path to tools/ directory
 get_script_dir() {
-    echo "$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
+    cd "$(dirname "${BASH_SOURCE[1]}")" && pwd
 }
 
 # Wait for SSH to be available and add host keys to known_hosts
@@ -88,11 +88,13 @@ wait_for_ssh_and_add_known_host() {
     fi
 
     # Scan the IP but write the hostname to known_hosts
-    local temp_keys=$(mktemp)
+    local temp_keys
+    temp_keys=$(mktemp)
     if ssh-keyscan -T 5 "$vm_ip" > "$temp_keys" 2>/dev/null; then
         # Replace IP with hostname in the scanned keys
         sed "s/^$vm_ip/$hostname/" "$temp_keys" | grep -v "^#" | grep -v "^$" >> "$known_hosts_file"
-        local key_count=$(grep -v "^#" "$temp_keys" | grep -v "^$" | wc -l)
+        local key_count
+        key_count=$(grep -v "^#" "$temp_keys" | grep -c -v "^$")
         info "Added $key_count SSH host key(s) for $hostname to $known_hosts_file"
         rm -f "$temp_keys"
         return 0
@@ -188,6 +190,7 @@ load_config() {
         error "Configuration file not found at $config_file"
     fi
 
+    # shellcheck source=/dev/null
     source "$config_file"
 
     # Validate required config variables
@@ -210,6 +213,7 @@ get_ssh_key() {
         error "No SSH public key found. Expected ~/.ssh/id_ed25519.pub or ~/.ssh/id_rsa.pub"
     fi
 
+    export SSH_KEY_CONTENT
     SSH_KEY_CONTENT=$(cat "$SSH_PUBKEY")
 }
 
