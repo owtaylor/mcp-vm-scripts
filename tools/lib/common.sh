@@ -94,7 +94,7 @@ wait_for_ssh_and_add_known_host() {
         # Replace IP with hostname in the scanned keys
         sed "s/^$vm_ip/$hostname/" "$temp_keys" | grep -v "^#" | grep -v "^$" >> "$known_hosts_file"
         local key_count
-        key_count=$(grep -v "^#" "$temp_keys" | grep -v "^$" | wc -l)
+        key_count=$(grep -v "^#" "$temp_keys" | grep -c -v "^$")
         info "Added $key_count SSH host key(s) for $hostname to $known_hosts_file"
         rm -f "$temp_keys"
         return 0
