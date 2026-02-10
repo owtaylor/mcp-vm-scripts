@@ -195,6 +195,8 @@ When creating commits, follow these conventions:
 
 Always test with disposable VM names.
 
+Always run shellcheck on the changed files and address any resulting findings before considering any modifications complete.
+
 ### Platform-Specific Testing
 You can only test the platform you're running on:
 - Linux CI: Can test libvirt path
