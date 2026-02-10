@@ -204,7 +204,8 @@ EOF
         esac
     done
 
-    local vms=$(platform_list_vms)
+    local vms
+    vms=$(platform_list_vms)
     if [[ -z "$vms" ]]; then
         if [[ "$name_only" != true ]]; then
             info "No mcpvm-managed VMs found"

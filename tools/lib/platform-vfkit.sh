@@ -122,7 +122,8 @@ platform_create_vm() {
     local vm_disk="$VFKIT_DISKS_DIR/$vm_name.raw"
     local efi_vars="$VFKIT_STATE_DIR/$vm_name-efi-vars"
     # Fixed MAC per VM so we can look up IP in dhcpd_leases
-    local mac="52:54:00:$(openssl rand -hex 3 | sed 's/\(..\)/\1:/g;s/:$//')"
+    local mac
+    mac="52:54:00:$(openssl rand -hex 3 | sed 's/\(..\)/\1:/g;s/:$//')"
 
     info "Creating VM disk (APFS CoW clone)..."
     if ! cp -c "$base_image" "$vm_disk" 2>/dev/null; then
