@@ -190,6 +190,7 @@ load_config() {
         error "Configuration file not found at $config_file"
     fi
 
+    # shellcheck source=/dev/null
     source "$config_file"
 
     # Validate required config variables
