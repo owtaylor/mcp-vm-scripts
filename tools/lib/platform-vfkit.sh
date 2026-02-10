@@ -30,6 +30,29 @@ _vfkit_load_state() {
     return 0
 }
 
+# Launch vfkit in the background with the given device paths.
+# Arguments: $1=vm_name, $2=disk_path, $3=iso_path, $4=efi_vars_path, $5=mac
+# Writes vfkit PID to the VM's pid file. Prints the PID to stdout for callers.
+_vfkit_launch_vm() {
+    local vm_name="$1"
+    local disk_path="$2"
+    local iso_path="$3"
+    local efi_vars_path="$4"
+    local mac="$5"
+    local pid_file
+    pid_file=$(_vfkit_pid_file "$vm_name")
+    vfkit --cpus 2 --memory 4096 \
+        --bootloader "efi,variable-store=$efi_vars_path,create" \
+        --device "virtio-blk,path=$disk_path" \
+        --device "virtio-blk,path=$iso_path" \
+        --device "virtio-net,nat,mac=$mac" \
+        --device virtio-rng \
+        --device "virtio-serial,logFilePath=$VFKIT_STATE_DIR/$vm_name-serial.log" \
+        </dev/null >> "$VFKIT_STATE_DIR/$vm_name.log" 2>&1 &
+    echo $! > "$pid_file"
+    cat "$pid_file"
+}
+
 # Check for required tools and macOS version
 platform_check_prerequisites() {
     info "Checking prerequisites for vfkit..."
@@ -142,21 +165,10 @@ VFKIT_MAC="$mac"
 EOF
 
     info "Starting vfkit..."
-    # Run vfkit in background; capture PID
-    (
-        vfkit --cpus 2 --memory 4096 \
-            --bootloader "efi,variable-store=$efi_vars,create" \
-            --device "virtio-blk,path=$vm_disk" \
-            --device "virtio-blk,path=$cloudinit_iso" \
-            --device "virtio-net,nat,mac=$mac" \
-            --device virtio-rng \
-            --device "virtio-serial,logFilePath=$VFKIT_STATE_DIR/$vm_name-serial.log" \
-            </dev/null >> "$VFKIT_STATE_DIR/$vm_name.log" 2>&1
-        rm -f "$(_vfkit_pid_file "$vm_name")"
-    ) &
-    local pid=$!
-    echo "$pid" > "$(_vfkit_pid_file "$vm_name")"
-    info "vfkit started (PID $pid)"
+    # Run vfkit in background
+    local vfkit_pid
+    vfkit_pid=$(_vfkit_launch_vm "$vm_name" "$vm_disk" "$cloudinit_iso" "$efi_vars" "$mac")
+    info "vfkit started (PID $vfkit_pid)"
     info "VM created successfully!"
 }
 
@@ -272,19 +284,9 @@ platform_start_vm() {
     fi
 
     info "Starting VM '$vm_name'..."
-    (
-        vfkit --cpus 2 --memory 4096 \
-            --bootloader "efi,variable-store=$VFKIT_EFI_VARS,create" \
-            --device "virtio-blk,path=$VFKIT_DISK" \
-            --device "virtio-blk,path=$VFKIT_ISO" \
-            --device "virtio-net,nat,mac=$VFKIT_MAC" \
-            --device virtio-rng \
-            --device "virtio-serial,logFilePath=$VFKIT_STATE_DIR/$vm_name-serial.log" \
-            </dev/null >> "$VFKIT_STATE_DIR/$vm_name.log" 2>&1
-        rm -f "$pid_file"
-    ) &
-    echo $! > "$pid_file"
-    info "VM '$vm_name' started"
+    local vfkit_pid
+    vfkit_pid=$(_vfkit_launch_vm "$vm_name" "$VFKIT_DISK" "$VFKIT_ISO" "$VFKIT_EFI_VARS" "$VFKIT_MAC")
+    info "VM '$vm_name' started (PID $vfkit_pid)"
 }
 
 # Stop a VM (terminate vfkit process)
