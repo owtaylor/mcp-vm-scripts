@@ -131,27 +131,35 @@ wait_for_cloudinit() {
         -o LogLevel=ERROR \
         -o ConnectTimeout=10 \
         "$username@$vm_ip" \
-        "timeout $timeout cloud-init status --wait" 2>&1); then
-        # Command succeeded - check if status is "done"
-        if echo "$status_output" | grep -q "done"; then
+        "timeout $timeout cloud-init status --wait 2>/dev/null; cloud-init status" 2>&1); then
+        # Parse the final status line from the output
+        local status_line
+        status_line=$(echo "$status_output" | grep "^status:" | tail -1)
+
+        if echo "$status_line" | grep -q "done\|disabled"; then
             info "Cloud-init completed successfully"
             return 0
-        elif echo "$status_output" | grep -q "error"; then
+        elif echo "$status_line" | grep -q "error"; then
             warn "Cloud-init completed with errors"
             warn "Check VM logs: ssh $username@$vm_ip 'cat /var/log/cloud-init-output.log'"
             return 2
         else
             # Unexpected output but command succeeded
-            info "Cloud-init finished (status: $status_output)"
+            info "Cloud-init finished ($status_line)"
             return 0
         fi
     else
         local exit_code=$?
-        # Check if the output indicates an error status
-        if echo "$status_output" | grep -q "error"; then
+        # Check if the output contains a status line indicating an error
+        local status_line
+        status_line=$(echo "$status_output" | grep "^status:" | tail -1)
+        if echo "$status_line" | grep -q "error"; then
             warn "Cloud-init completed with errors"
             warn "Check VM logs: ssh $username@$vm_ip 'cat /var/log/cloud-init-output.log'"
             return 2
+        elif echo "$status_line" | grep -q "done\|disabled"; then
+            info "Cloud-init completed successfully"
+            return 0
         fi
         # SSH or timeout failure
         warn "Timed out or failed waiting for cloud-init (exit code: $exit_code)"

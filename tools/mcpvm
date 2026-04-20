@@ -48,18 +48,21 @@ cmd_setup() {
     VERSION=""
     VM_NAME=""
     PLAYBOOK=""
+    SKIP_CLOUD_INIT=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
             --help|-h)
                 cat <<EOF
-Usage: mcpvm setup --version=<RHEL-VERSION> [--playbook=<PATH>] [NAME]
+Usage: mcpvm setup --version=<RHEL-VERSION> [--playbook=<PATH>] [--skip-cloud-init] [NAME]
 
 Create and start a new RHEL VM.
 
 Options:
   --version=X.Y       RHEL version (e.g., 9.5)
   --playbook=<PATH>   Run an Ansible playbook after VM is ready
+  --skip-cloud-init   Skip waiting for cloud-init and mDNS resolution;
+                      use the VM IP address directly
   [NAME]              Optional VM name (must start with 'mcpvm-'). If not
                       provided, a random name will be generated
                       (mcpvm-<adjective>-<utensil>)
@@ -86,6 +89,10 @@ EOF
             --playbook)
                 PLAYBOOK="$2"
                 shift 2
+                ;;
+            --skip-cloud-init)
+                SKIP_CLOUD_INIT=true
+                shift
                 ;;
             *)
                 if [[ -z "$VM_NAME" ]]; then
@@ -159,42 +166,52 @@ EOF
         warn "You may need to wait for the VM to boot and configure SSH manually"
     fi
 
-    # Wait for cloud-init to complete via SSH
-    local cloudinit_ok=true
-    if [[ -n "$VM_IP" ]]; then
-        info ""
-        local cloudinit_rc=0
-        wait_for_cloudinit "$VM_IP" "$USER" 300 || cloudinit_rc=$?
-        if [[ $cloudinit_rc -eq 2 ]]; then
-            warn "Cloud-init reported errors; VM may not be fully provisioned"
-            cloudinit_ok=false
-        elif [[ $cloudinit_rc -ne 0 ]]; then
-            warn "Could not confirm cloud-init completion"
-            cloudinit_ok=false
-        fi
-    fi
-
     # Determine the connection target: prefer hostname, fall back to IP
     local connect_target="$VM_HOSTNAME"
     local hostname_resolved=true
-    if [[ "$cloudinit_ok" == true ]]; then
-        # Cloud-init succeeded, try hostname resolution with a short timeout
-        if ! wait_for_hostname_resolution "$VM_HOSTNAME" 6 5; then
+
+    if [[ "$SKIP_CLOUD_INIT" == true ]]; then
+        info ""
+        info "Skipping cloud-init and mDNS resolution (--skip-cloud-init)"
+        if [[ -n "$VM_IP" ]]; then
+            connect_target="$VM_IP"
             hostname_resolved=false
         fi
     else
-        # Cloud-init had issues; still try hostname but don't expect it
-        if ! wait_for_hostname_resolution "$VM_HOSTNAME" 3 5; then
-            hostname_resolved=false
-        fi
-    fi
-
-    if [[ "$hostname_resolved" != true ]]; then
+        # Wait for cloud-init to complete via SSH
+        local cloudinit_ok=true
         if [[ -n "$VM_IP" ]]; then
-            warn "Hostname $VM_HOSTNAME did not resolve; falling back to IP address $VM_IP"
-            connect_target="$VM_IP"
+            info ""
+            local cloudinit_rc=0
+            wait_for_cloudinit "$VM_IP" "$USER" 300 || cloudinit_rc=$?
+            if [[ $cloudinit_rc -eq 2 ]]; then
+                warn "Cloud-init reported errors; VM may not be fully provisioned"
+                cloudinit_ok=false
+            elif [[ $cloudinit_rc -ne 0 ]]; then
+                warn "Could not confirm cloud-init completion"
+                cloudinit_ok=false
+            fi
+        fi
+
+        if [[ "$cloudinit_ok" == true ]]; then
+            # Cloud-init succeeded, try hostname resolution with a short timeout
+            if ! wait_for_hostname_resolution "$VM_HOSTNAME" 6 5; then
+                hostname_resolved=false
+            fi
         else
-            warn "Hostname $VM_HOSTNAME did not resolve and no IP address available"
+            # Cloud-init had issues; still try hostname but don't expect it
+            if ! wait_for_hostname_resolution "$VM_HOSTNAME" 3 5; then
+                hostname_resolved=false
+            fi
+        fi
+
+        if [[ "$hostname_resolved" != true ]]; then
+            if [[ -n "$VM_IP" ]]; then
+                warn "Hostname $VM_HOSTNAME did not resolve; falling back to IP address $VM_IP"
+                connect_target="$VM_IP"
+            else
+                warn "Hostname $VM_HOSTNAME did not resolve and no IP address available"
+            fi
         fi
     fi
 
