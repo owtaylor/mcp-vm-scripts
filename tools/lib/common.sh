@@ -105,8 +105,64 @@ wait_for_ssh_and_add_known_host() {
     fi
 }
 
+# Wait for cloud-init to complete by checking status via SSH
+# Arguments:
+#   $1 - VM IP address
+#   $2 - SSH username
+#   $3 - timeout in seconds (default: 300)
+# Returns:
+#   0 - cloud-init completed successfully (status: done)
+#   1 - timeout waiting for cloud-init
+#   2 - cloud-init finished with errors (status: error)
+wait_for_cloudinit() {
+    local vm_ip="$1"
+    local username="$2"
+    local timeout="${3:-300}"
+
+    info "Waiting for cloud-init to complete (timeout: ${timeout}s)..."
+
+    local status_output
+    # Run cloud-init status --wait with a timeout via SSH
+    # Use permissive SSH options since host keys are stored under
+    # hostname, not IP
+    if status_output=$(ssh \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -o LogLevel=ERROR \
+        -o ConnectTimeout=10 \
+        "$username@$vm_ip" \
+        "timeout $timeout cloud-init status --wait" 2>&1); then
+        # Command succeeded - check if status is "done"
+        if echo "$status_output" | grep -q "done"; then
+            info "Cloud-init completed successfully"
+            return 0
+        elif echo "$status_output" | grep -q "error"; then
+            warn "Cloud-init completed with errors"
+            warn "Check VM logs: ssh $username@$vm_ip 'cat /var/log/cloud-init-output.log'"
+            return 2
+        else
+            # Unexpected output but command succeeded
+            info "Cloud-init finished (status: $status_output)"
+            return 0
+        fi
+    else
+        local exit_code=$?
+        # Check if the output indicates an error status
+        if echo "$status_output" | grep -q "error"; then
+            warn "Cloud-init completed with errors"
+            warn "Check VM logs: ssh $username@$vm_ip 'cat /var/log/cloud-init-output.log'"
+            return 2
+        fi
+        # SSH or timeout failure
+        warn "Timed out or failed waiting for cloud-init (exit code: $exit_code)"
+        warn "The VM may still be provisioning. You can check manually:"
+        warn "  ssh $username@$vm_ip 'cloud-init status'"
+        return 1
+    fi
+}
+
 # Wait for hostname to become resolvable via mDNS
-# This indicates that cloud-init has completed and Avahi is running
+# This indicates that Avahi is running and the hostname is advertised
 # Arguments:
 #   $1 - hostname (e.g., myvm.local)
 #   $2 - max retry attempts (default: 60)
@@ -117,7 +173,7 @@ wait_for_hostname_resolution() {
     local retry_interval="${3:-5}"
     local attempt=0
 
-    info "Waiting for $hostname to become resolvable (cloud-init completion)..."
+    info "Waiting for $hostname to become resolvable via mDNS..."
 
     while [[ $attempt -lt $max_retries ]]; do
         # Try to resolve the hostname
@@ -134,7 +190,8 @@ wait_for_hostname_resolution() {
     done
     echo "" >&2
 
-    error "Timeout waiting for $hostname to become resolvable"
+    warn "Timeout waiting for $hostname to become resolvable"
+    return 1
 }
 
 # Run an Ansible playbook against a host
