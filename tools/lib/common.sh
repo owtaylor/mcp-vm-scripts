@@ -81,21 +81,33 @@ wait_for_ssh_and_add_known_host() {
     touch "$known_hosts_file"
     chmod 600 "$known_hosts_file"
 
-    # Remove any existing entries for this hostname
+    # Remove any existing entries for this hostname and IP
     if grep -q "$hostname" "$known_hosts_file" 2>/dev/null; then
         info "Removing existing entries for $hostname..."
         ssh-keygen -R "$hostname" &>/dev/null || true
     fi
+    if grep -q "$vm_ip" "$known_hosts_file" 2>/dev/null; then
+        info "Removing existing entries for $vm_ip..."
+        ssh-keygen -R "$vm_ip" &>/dev/null || true
+    fi
 
-    # Scan the IP but write the hostname to known_hosts
+    # Scan the IP and write keys under both hostname and IP so that
+    # connections via either identifier work without interactive prompts
     local temp_keys
     temp_keys=$(mktemp)
     if ssh-keyscan -T 5 "$vm_ip" > "$temp_keys" 2>/dev/null; then
-        # Replace IP with hostname in the scanned keys
-        sed "s/^$vm_ip/$hostname/" "$temp_keys" | grep -v "^#" | grep -v "^$" >> "$known_hosts_file"
+        local clean_keys
+        clean_keys=$(grep -v "^#" "$temp_keys" | grep -v "^$")
+
+        # Write keys under the hostname
+        # shellcheck disable=SC2001 # sed needed for line-anchored substitution
+        sed "s/^$vm_ip/$hostname/" <<< "$clean_keys" >> "$known_hosts_file"
+        # Write keys under the IP (for direct-IP connections)
+        echo "$clean_keys" >> "$known_hosts_file"
+
         local key_count
-        key_count=$(grep -v "^#" "$temp_keys" | grep -c -v "^$")
-        info "Added $key_count SSH host key(s) for $hostname to $known_hosts_file"
+        key_count=$(wc -l <<< "$clean_keys")
+        info "Added $key_count SSH host key(s) for $hostname and $vm_ip to $known_hosts_file"
         rm -f "$temp_keys"
         return 0
     else
