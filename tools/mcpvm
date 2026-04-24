@@ -49,12 +49,13 @@ cmd_setup() {
     VM_NAME=""
     PLAYBOOK=""
     SKIP_CLOUD_INIT=false
+    SKIP_MDNS=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
             --help|-h)
                 cat <<EOF
-Usage: mcpvm setup --version=<RHEL-VERSION> [--playbook=<PATH>] [--skip-cloud-init] [NAME]
+Usage: mcpvm setup --version=<RHEL-VERSION> [--playbook=<PATH>] [--skip-cloud-init] [--skip-mdns] [NAME]
 
 Create and start a new RHEL VM.
 
@@ -63,6 +64,9 @@ Options:
   --playbook=<PATH>   Run an Ansible playbook after VM is ready
   --skip-cloud-init   Skip waiting for cloud-init and mDNS resolution;
                       use the VM IP address directly
+  --skip-mdns         Skip waiting for mDNS hostname resolution; still
+                      wait for cloud-init to complete, then connect via
+                      the VM IP address
   [NAME]              Optional VM name (must start with 'mcpvm-'). If not
                       provided, a random name will be generated
                       (mcpvm-<adjective>-<utensil>)
@@ -71,6 +75,7 @@ Examples:
   mcpvm setup --version=9.5                           # Auto-generate name
   mcpvm setup --version=9.5 mcpvm-my-test             # Use specific name
   mcpvm setup --version=9.5 --playbook=configure.yml  # Run playbook after setup
+  mcpvm setup --version=9.5 --skip-mdns --playbook=configure.yml
 EOF
                 exit 0
                 ;;
@@ -92,6 +97,10 @@ EOF
                 ;;
             --skip-cloud-init)
                 SKIP_CLOUD_INIT=true
+                shift
+                ;;
+            --skip-mdns)
+                SKIP_MDNS=true
                 shift
                 ;;
             *)
@@ -193,7 +202,10 @@ EOF
             fi
         fi
 
-        if [[ "$cloudinit_ok" == true ]]; then
+        if [[ "$SKIP_MDNS" == true ]]; then
+            info "Skipping mDNS resolution (--skip-mdns)"
+            hostname_resolved=false
+        elif [[ "$cloudinit_ok" == true ]]; then
             # Cloud-init succeeded, try hostname resolution with a short timeout
             if ! wait_for_hostname_resolution "$VM_HOSTNAME" 6 5; then
                 hostname_resolved=false
@@ -207,7 +219,9 @@ EOF
 
         if [[ "$hostname_resolved" != true ]]; then
             if [[ -n "$VM_IP" ]]; then
-                warn "Hostname $VM_HOSTNAME did not resolve; falling back to IP address $VM_IP"
+                if [[ "$SKIP_MDNS" != true ]]; then
+                    warn "Hostname $VM_HOSTNAME did not resolve; falling back to IP address $VM_IP"
+                fi
                 connect_target="$VM_IP"
             else
                 warn "Hostname $VM_HOSTNAME did not resolve and no IP address available"
